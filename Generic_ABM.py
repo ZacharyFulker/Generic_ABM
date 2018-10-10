@@ -173,4 +173,3 @@ def summary_statistics(results):
 
 x, y, a, b = summary_statistics(agent_results)
 print(x, y, a, b)
-exit()
