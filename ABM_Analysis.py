@@ -16,4 +16,3 @@ for row in strategy_data.iterrows():
         print(bin_number)
         #bins[int(bin_number)][2] += 1
         bins[int(bin_number)] += 1
-    exit()
