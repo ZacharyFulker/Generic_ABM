@@ -28,3 +28,4 @@ for index, bin in enumerate(by_bin):
     plt.plot(range(len(bin)), bin, label=label)
 plt.legend(loc='upper left')
 plt.show()
+exit()
