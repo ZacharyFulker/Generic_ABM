@@ -56,7 +56,7 @@ class Player:
 
 # TOO SLOW!!!!!!! make switches to list comprehensions
 def run_game_network(payoffs, rounds, num_players, num_saves=0, async=True):
-    # Selects rounds to save history
+    # Selects rounds to save history (will save less than request unless iterations >> saves)
     if num_saves != 0:
         rounds_to_save = np.logspace(0, math.log10(rounds), num_saves)
         rounds_to_save = list(map(lambda z: math.floor(z), rounds_to_save))
@@ -121,9 +121,8 @@ def write_results(results):
 
 # Game Setup and execution
 payoff = [[(2/3), 0], [1, (1/3)]]
-agent_results = run_game_network(payoff, 100, 10, 50)
-write_results(agent_results)
-exit()
+agent_results = run_game_network(payoff, 100, 10, 60)
+#write_results(agent_results)
 
 
 
