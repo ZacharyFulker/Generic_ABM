@@ -28,4 +28,9 @@ for index, bin in enumerate(by_bin):
     plt.plot(range(len(bin)), bin, label=label)
 plt.legend(loc='upper left')
 plt.show()
-exit()
+
+
+# Proportion of Interaction Plot over time
+Cum_prob = {"DD": 0, "DC": 0, "CD": 0, "DD": 0}
+interaction_types = Cum_prob.keys()
+For agent in agents:

@@ -14,21 +14,23 @@ error = 0.01
 
 # create class for agents
 class Player:
-    def __init__(self, cooperate, defect, num_players):
+    def __init__(self, cooperate, defect, num_players, self_index):
+        self.self_index = self_index
         self.cooperate = cooperate
         self.defect = defect
+        self.current_defect_ratio = self.defect / (self.cooperate + self.defect)
         self.win_total = 0
-        self.adj_matrix = np.ones((1, num_players), dtype=float)
-        self.adj_matrix[0][0] = 0
-        self.error_adj_matrix = self.adj_matrix
-        self.history = [self.defect / (self.cooperate + self.defect)]
-        self.weight_history = [np.ones((1, num_players-1), dtype=float)[0].tolist()]
+        self.adj_matrix = [1] * num_players
+        self.adj_matrix[self_index] = 0
+        self.error_adj_matrix = self.adj_matrix  # play uniform strategy if error
+        self.history = [self.current_defect_ratio]
+        self.weight_history = [list(self.adj_matrix)]
 
     def choose_strategy(self, choice_error):
         if choice_error:
             defect_ratio = 0.5
         else:
-            defect_ratio = self.defect / (self.cooperate + self.defect)
+            defect_ratio = self.current_defect_ratio
         if random.uniform(0, 1) <= defect_ratio:
             defect = True
         else:
@@ -36,22 +38,35 @@ class Player:
         return defect
 
     def save_history(self):
-        self.history.append(self.defect / (self.cooperate + self.defect))
-        self.weight_history.append(list(np.delete(self.adj_matrix, 0)))
+        self.history.append(self.current_defect_ratio)
+        self.weight_history.append(list(self.adj_matrix))
 
     def update(self, defect, round_winnings, index):
         if defect:
             self.defect = discount*self.defect + round_winnings
         else:
             self.cooperate = discount*self.cooperate + round_winnings
+        self.current_defect_ratio = self.defect / (self.cooperate + self.defect)
         self.win_total += round_winnings
-        self.adj_matrix[0][index] = discount*self.adj_matrix[0][index] + round_winnings
+        self.adj_matrix[index] = discount*self.adj_matrix[index] + round_winnings
 
     def get_adj_matrix(self):
         return self.adj_matrix
 
     def get_error_adj_matrix(self):
         return self.error_adj_matrix
+
+
+def calc_proportion_of_interactions(agents):
+    cum_prob = {"DD": 0, "DC": 0, "CD": 0, "CC": 0}
+    interaction_types = cum_prob.keys()
+    for agent in agents:
+        for neighbor_index in range(len(agents)):
+            for interaction in interaction_types:
+                cum_prob[interaction] = cum_prob[interaction] + (agent.current_defect_ratio * \
+                                        agent.adj_matrix[neighbor_index] * \
+                                        agents[neighbor_index].current_defect_ratio) / len(agents)
+    return cum_prob
 
 
 # TOO SLOW!!!!!!! make switches to list comprehensions
@@ -64,7 +79,8 @@ def run_game_network(payoffs, rounds, num_players, num_saves=0, async=True):
     # initialize agents
     agents = []
     for player in range(num_players):
-        agents.append(Player(1, 1, num_players))
+        agents.append(Player(1, 1, num_players, player))
+    proportion_history = [calc_proportion_of_interactions(agents)]
     # begin game
     for iteration in range(rounds):
         # RVs to determine errors
@@ -80,14 +96,14 @@ def run_game_network(payoffs, rounds, num_players, num_saves=0, async=True):
                 adj_matrix = agents[index].get_error_adj_matrix()
             else:
                 adj_matrix = agents[index].get_adj_matrix()
-            random_num = random.uniform(0, sum(adj_matrix[0]))
-            for opponent_index, item in enumerate(accumulate(adj_matrix[0])):
+            random_num = random.uniform(0, sum(adj_matrix))
+            for opponent_index, item in enumerate(accumulate(adj_matrix)):
                 if random_num <= item:
                     break
             # Check for strategy error
             choice_error = (strategy_error <= error)
             # agents pick strategy and then update based on game results
-            opponent_defect = agents[opponent_index].choose_strategy(False)
+            opponent_defect = agents[opponent_index].choose_strategy(False)  # opponent never makes choice errors
             agent_defect = agents[index].choose_strategy(choice_error)
             agent_winnings = payoffs[agent_defect][opponent_defect]
             opponent_winnings = payoffs[opponent_defect][agent_defect]
@@ -101,17 +117,20 @@ def run_game_network(payoffs, rounds, num_players, num_saves=0, async=True):
             agents = agents_sync
         # save players defect ratio at the end of each round
         if num_saves == 0:  # Default saves every round
+            proportion_history.append(calc_proportion_of_interactions(agents))
             for agent in agents:  # could use map() to save time
                 agent.save_history()
         else:
             if iteration in rounds_to_save:
+                proportion_history.append(calc_proportion_of_interactions(agents))
                 # should add some way of saving iteration # to be on x axis
                 for agent in agents:  # could use map() to save time
                     agent.save_history()
-    return agents
+    return agents, proportion_history
 
 
-def write_results(results):
+# ADD A WAY TO WRITE PROPORTION OF RESULTS TO FILE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+def write_results(results, prortion_history):
     with open('run_results.csv', 'w', newline='') as file:
         writer = csv.writer(file, delimiter=',')
         for result in results:
@@ -121,10 +140,9 @@ def write_results(results):
 
 # Game Setup and execution
 payoff = [[(2/3), 0], [1, (1/3)]]
-agent_results = run_game_network(payoff, 100, 10, 60)
-#write_results(agent_results)
-
-
+agent_results, proportion_history = run_game_network(payoff, 100, 10, 10)
+print(proportion_history)
+#write_results(agent_results, proportion_history)
 
 
 def loop_plot_defect_ratio(results, plot_number, num_columns=4):
@@ -148,8 +166,7 @@ def loop_plot_defect_ratio(results, plot_number, num_columns=4):
         plt.plot(values[0], values[1])
     plt.show()
 
-#loop_plot_defect_ratio(agent_results, 10)
-
+loop_plot_defect_ratio(agent_results, 10)
 
 def loop_plot_weights_ratio(results, plot_number, num_columns=4):
     random_sample = random.sample(range(len(results)), plot_number)
@@ -183,6 +200,7 @@ def loop_plot_weights_ratio(results, plot_number, num_columns=4):
 
 
 loop_plot_weights_ratio(agent_results, 5)
+exit()
 
 
 def summary_statistics(results):
