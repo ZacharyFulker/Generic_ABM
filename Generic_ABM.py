@@ -63,10 +63,25 @@ def calc_proportion_of_interactions(agents):
     for agent in agents:
         for neighbor_index in range(len(agents)):
             for interaction in interaction_types:
-                cum_prob[interaction] = cum_prob[interaction] + (agent.current_defect_ratio * \
-                                        agent.adj_matrix[neighbor_index] * \
-                                        agents[neighbor_index].current_defect_ratio) / len(agents)
-    return cum_prob
+                if interaction == 'DD':
+                    cum_prob[interaction] = cum_prob[interaction] + (agent.current_defect_ratio * \
+                                            agent.adj_matrix[neighbor_index] * \
+                                            agents[neighbor_index].current_defect_ratio) / len(agents)
+                elif interaction == 'DC':
+                    cum_prob[interaction] = cum_prob[interaction] + (agent.current_defect_ratio * \
+                                            agent.adj_matrix[neighbor_index] * \
+                                            (1 - agents[neighbor_index].current_defect_ratio)) / len(agents)
+                elif interaction == 'CD':
+                    cum_prob[interaction] = cum_prob[interaction] + ((1 - agent.current_defect_ratio) * \
+                                            agent.adj_matrix[neighbor_index] * \
+                                            agents[neighbor_index].current_defect_ratio) / len(agents)
+                else:
+                    cum_prob[interaction] = cum_prob[interaction] + ((1 - agent.current_defect_ratio) * \
+                                            agent.adj_matrix[neighbor_index] * \
+                                            (1 - agents[neighbor_index].current_defect_ratio)) / len(agents)
+    # convert dict to normalized list of values to return???? WHY THOUGH??????
+    norm_cum_prob = [float(i) / sum(list(cum_prob.values())) for i in list(cum_prob.values())]
+    return norm_cum_prob
 
 
 # TOO SLOW!!!!!!! make switches to list comprehensions
@@ -80,7 +95,7 @@ def run_game_network(payoffs, rounds, num_players, num_saves=0, async=True):
     agents = []
     for player in range(num_players):
         agents.append(Player(1, 1, num_players, player))
-    proportion_history = [calc_proportion_of_interactions(agents)]
+    proportion_interaction_history = [calc_proportion_of_interactions(agents)]
     # begin game
     for iteration in range(rounds):
         # RVs to determine errors
@@ -117,22 +132,23 @@ def run_game_network(payoffs, rounds, num_players, num_saves=0, async=True):
             agents = agents_sync
         # save players defect ratio at the end of each round
         if num_saves == 0:  # Default saves every round
-            proportion_history.append(calc_proportion_of_interactions(agents))
+            proportion_interaction_history.append(calc_proportion_of_interactions(agents))
             for agent in agents:  # could use map() to save time
                 agent.save_history()
         else:
             if iteration in rounds_to_save:
-                proportion_history.append(calc_proportion_of_interactions(agents))
+                proportion_interaction_history.append(calc_proportion_of_interactions(agents))
                 # should add some way of saving iteration # to be on x axis
                 for agent in agents:  # could use map() to save time
                     agent.save_history()
-    return agents, proportion_history
+    return agents, proportion_interaction_history
 
 
 # ADD A WAY TO WRITE PROPORTION OF RESULTS TO FILE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-def write_results(results, prortion_history):
+def write_results(results, proportion_interaction_history ):
     with open('run_results.csv', 'w', newline='') as file:
         writer = csv.writer(file, delimiter=',')
+        writer.writerow(proportion_interaction_history )
         for result in results:
                 writer.writerow(result.history)
                 writer.writerow(result.weight_history)
@@ -140,9 +156,9 @@ def write_results(results, prortion_history):
 
 # Game Setup and execution
 payoff = [[(2/3), 0], [1, (1/3)]]
-agent_results, proportion_history = run_game_network(payoff, 100, 10, 10)
-print(proportion_history)
-#write_results(agent_results, proportion_history)
+agent_results, proportion_history = run_game_network(payoff, 1000, 10, 50)
+write_results(agent_results, proportion_history)
+exit()
 
 
 def loop_plot_defect_ratio(results, plot_number, num_columns=4):
