@@ -1,3 +1,11 @@
+################################################
+############ Issues to be resolved #############
+################################################
+# change x axis to round of save
+# save weights to history as ratio (proportion of interactions requires ratio, currently raw values)
+# Make opponent also make strategy/opponent errors
+# In analysis why more time steps in link weigh ratio plot
+
 import copy
 import random
 from itertools import accumulate
